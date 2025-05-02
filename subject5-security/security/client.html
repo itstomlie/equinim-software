@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CORS & Security Test Client</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        max-width: 800px;
+        margin: 20px auto;
+      }
+      .output {
+        margin-top: 5px;
+        margin-bottom: 15px;
+        padding: 10px;
+        border: 1px solid #ccc;
+        min-height: 40px;
+        background-color: #f9f9f9;
+        font-family: monospace;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+      }
+      .error {
+        color: red;
+        border-color: red;
+        background-color: #fee;
+      }
+      .success {
+        color: green;
+        border-color: green;
+        background-color: #efe;
+      }
+      button {
+        margin-right: 5px;
+        margin-bottom: 5px;
+        padding: 8px 12px;
+        cursor: pointer;
+      }
+      input[type="text"] {
+        padding: 8px;
+        margin-right: 5px;
+        min-width: 200px;
+      }
+      h2 {
+        border-bottom: 1px solid #eee;
+        padding-bottom: 5px;
+        margin-top: 30px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>CORS & Security Demonstration</h1>
+    <p>Using Server running at: <code>http://localhost:3001</code></p>
+    <p>
+      <strong>Instructions:</strong> Open your browser's developer console
+      (usually F12) to observe network requests and potential errors (CORS, Rate
+      Limiting).
+    </p>
+
+    <h2>Basic CORS Test (Not Rate Limited)</h2>
+    <button onclick="fetchWithCors()">Fetch from /</button>
+    <div id="outputWithCors" class="output">Click the button to fetch...</div>
+
+    <h2>Password Hashing (BCrypt - Rate Limited)</h2>
+    <input
+      type="text"
+      id="passwordInput"
+      placeholder="Enter password to hash"
+      value="password123"
+    />
+    <button onclick="fetchHash()">Hash Password</button>
+    <div id="outputHash" class="output">
+      Enter a password and click the button...
+    </div>
+
+    <h2>Simple Encryption (AES - Rate Limited)</h2>
+    <label for="encryptInput">Message to Encrypt:</label>
+    <input
+      type="text"
+      id="encryptInput"
+      placeholder="Enter message to encrypt"
+      value="This is a secret message!"
+    /><br />
+    <button onclick="fetchEncrypt()">Encrypt Message</button>
+    <button onclick="copyEncryptionOutput()" style="margin-left: 10px">
+      Copy Output Below
+    </button>
+    <div id="outputEncrypt" class="output">
+      Enter a message and click the button to encrypt...
+    </div>
+    <p>
+      <small
+        >Note: Decryption would require the secret key used on the
+        server.</small
+      >
+    </p>
+
+    <h2>Simple Decryption (AES - Rate Limited)</h2>
+    <label for="ivInput">IV (hex):</label>
+    <input
+      type="text"
+      id="ivInput"
+      placeholder="Paste IV from encryption output"
+    /><br />
+    <label for="encryptedDataInput">Encrypted Data (hex):</label>
+    <input
+      type="text"
+      id="encryptedDataInput"
+      placeholder="Paste encryptedData from encryption output"
+    /><br />
+    <button onclick="fetchDecrypt()">Decrypt Message</button>
+    <div id="outputDecrypt" class="output">
+      Enter IV and Encrypted Data, then click the button...
+    </div>
+
+    <h2>Rate Limiting Test</h2>
+    <p>
+      Quickly click one of the rate-limited buttons (Hash or Encrypt) more than
+      5 times within a minute.
+    </p>
+    <div id="outputRateLimit" class="output">
+      Observe results above or in the Network tab of DevTools. You should
+      receive a 429 Too Many Requests error after the limit is exceeded.
+    </div>
+
+    <script>
+      const BASE_URL = "http://localhost:3001";
+
+      const outputWithCors = document.getElementById("outputWithCors");
+      const outputHash = document.getElementById("outputHash");
+      const outputEncrypt = document.getElementById("outputEncrypt");
+      const passwordInput = document.getElementById("passwordInput");
+      const outputDecrypt = document.getElementById("outputDecrypt");
+      const ivInput = document.getElementById("ivInput");
+      const encryptedDataInput = document.getElementById("encryptedDataInput");
+      const encryptInput = document.getElementById("encryptInput");
+
+      // --- Helper Function to Display Output ---
+      function displayOutput(element, data, isError = false) {
+        element.textContent = JSON.stringify(data, null, 2); // Pretty print JSON
+        if (isError) {
+          element.className = "output error";
+        } else {
+          element.className = "output success";
+        }
+      }
+
+      function displayFetchError(element, error, response = null) {
+        let message = `Error: ${error.message}`;
+        if (response && response.status === 429) {
+          message += `\nStatus: ${response.status} - Rate Limit Exceeded!`;
+        } else if (response) {
+          message += `\nStatus: ${response.status} ${response.statusText}`;
+        }
+        console.error(`Fetch Error (${element.id}):`, error, response);
+        displayOutput(element, { error: message }, true);
+      }
+
+      // --- Fetch Functions ---
+
+      async function fetchWithCors() {
+        outputWithCors.textContent = "Fetching...";
+        outputWithCors.className = "output";
+        try {
+          const response = await fetch(`${BASE_URL}/`);
+          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(
+              data.message || `HTTP error! Status: ${response.status}`
+            );
+          }
+          displayOutput(outputWithCors, data);
+        } catch (error) {
+          displayFetchError(outputWithCors, error);
+        }
+      }
+
+      async function fetchHash() {
+        const password = passwordInput.value;
+        if (!password) {
+          displayOutput(outputHash, { error: "Please enter a password" }, true);
+          return;
+        }
+        outputHash.textContent = "Hashing...";
+        outputHash.className = "output";
+        try {
+          const response = await fetch(`${BASE_URL}/hash`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ password: password }),
+          });
+          const data = await response.json(); // Try to parse JSON even for errors
+          if (!response.ok) {
+            // Throw an error object that includes the parsed data if possible
+            const err = new Error(
+              data.error ||
+                data.message ||
+                `HTTP error! Status: ${response.status}`
+            );
+            err.response = response; // Attach response for more context
+            err.data = data; // Attach parsed data
+            throw err;
+          }
+          displayOutput(outputHash, data);
+        } catch (error) {
+          displayFetchError(outputHash, error, error.response);
+        }
+      }
+
+      async function fetchEncrypt() {
+        const messageToEncrypt = encryptInput.value.trim();
+        if (!messageToEncrypt) {
+          displayOutput(
+            outputEncrypt,
+            { error: "Please enter a message to encrypt" },
+            true
+          );
+          return;
+        }
+
+        outputEncrypt.textContent = "Encrypting...";
+        outputEncrypt.className = "output";
+        ivInput.value = "";
+        encryptedDataInput.value = "";
+        outputDecrypt.textContent =
+          "Enter IV and Encrypted Data, then click the button...";
+        outputDecrypt.className = "output";
+        try {
+          const response = await fetch(`${BASE_URL}/encrypt`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ message: messageToEncrypt }),
+          });
+          const data = await response.json();
+          if (!response.ok) {
+            const err = new Error(
+              data.error ||
+                data.message ||
+                `HTTP error! Status: ${response.status}`
+            );
+            err.response = response;
+            err.data = data;
+            throw err;
+          }
+          displayOutput(outputEncrypt, data);
+        } catch (error) {
+          displayFetchError(outputEncrypt, error, error.response);
+        }
+      }
+
+      async function fetchDecrypt() {
+        const iv = ivInput.value.trim();
+        const encryptedData = encryptedDataInput.value.trim();
+
+        if (!iv || !encryptedData) {
+          displayOutput(
+            outputDecrypt,
+            { error: "Please provide both IV and Encrypted Data" },
+            true
+          );
+          return;
+        }
+
+        outputDecrypt.textContent = "Decrypting...";
+        outputDecrypt.className = "output";
+        try {
+          const response = await fetch(`${BASE_URL}/decrypt`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ iv: iv, encryptedData: encryptedData }),
+          });
+          const data = await response.json();
+          if (!response.ok) {
+            const err = new Error(
+              data.error ||
+                data.message ||
+                `HTTP error! Status: ${response.status}`
+            );
+            err.response = response;
+            err.data = data;
+            throw err;
+          }
+          displayOutput(outputDecrypt, data);
+        } catch (error) {
+          displayFetchError(outputDecrypt, error, error.response);
+        }
+      }
+
+      // --- Utility Functions ---
+      function copyEncryptionOutput() {
+        try {
+          const outputData = JSON.parse(outputEncrypt.textContent);
+          if (outputData.iv && outputData.encryptedData) {
+            ivInput.value = outputData.iv;
+            encryptedDataInput.value = outputData.encryptedData;
+            outputDecrypt.textContent = "Copied! Now click Decrypt Message.";
+            outputDecrypt.className = "output";
+          } else {
+            outputDecrypt.textContent =
+              "Cannot copy: No valid encryption output found.";
+            outputDecrypt.className = "output error";
+          }
+        } catch (e) {
+          outputDecrypt.textContent =
+            "Cannot copy: Encryption output is not valid JSON or hasn't been generated yet.";
+          outputDecrypt.className = "output error";
+        }
+      }
+    </script>
+  </body>
+</html>

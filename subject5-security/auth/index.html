@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Auth Demo</title>
+  </head>
+  <body>
+    <h1>Authentication & Authorization Demo</h1>
+
+    <h2>Login</h2>
+    <form action="/login" method="post">
+      <label for="username">Username:</label>
+      <input type="text" id="username" name="username" value="user" /><br />
+      <label for="password">Password:</label>
+      <input
+        type="password"
+        id="password"
+        name="password"
+        value="password"
+      /><br />
+      <button type="submit">Login</button>
+    </form>
+
+    <h2>Access Protected Resource (User Role)</h2>
+    <a href="/user-resource">Access User Resource</a>
+
+    <h2>Access Protected Resource (Admin Role)</h2>
+    <a href="/admin-resource">Access Admin Resource</a>
+
+    <h2>Logout</h2>
+    <form action="/logout" method="post">
+      <button type="submit">Logout</button>
+    </form>
+  </body>
+</html>

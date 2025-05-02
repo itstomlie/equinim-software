@@ -1,0 +1,26 @@
+{
+  "name": "cors-examples",
+  "version": "1.0.0",
+  "description": "Express CORS and Security examples",
+  "main": "index.js",
+  "scripts": {
+    "start:no-cors": "node without_cors_server.js",
+    "start:with-cors": "node with_cors_server.js"
+  },
+  "keywords": [
+    "cors",
+    "express",
+    "security",
+    "rate-limit",
+    "bcrypt",
+    "crypto"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "bcrypt": "^5.1.1",
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "express-rate-limit": "^7.3.1"
+  }
+}
